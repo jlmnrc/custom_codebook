@@ -1,0 +1,30 @@
+table.ReportTableWithBorder {
+    border-right:1px solid black;
+    border-bottom:1px solid black;
+}
+table.ReportTableWithBorder th, table.ReportTableWithBorder td {
+    border-top: 1px solid black;
+    border-left: 1px solid black;
+    padding: 4px 5px;
+    text-align: left !important;
+
+}
+
+table.ReportTableWithBorder th { font-weight:bold;  }
+td.vwrap {word-wrap:break-word;word-break:break-all;}
+
+table.DataDictionary th {
+    font-weight: bold;
+    text-align: right;
+    vertical-align: top;
+}
+
+table.DataDictionary th, table.DataDictionary td {
+    padding: 4px 5px;
+}
+
+table.DataDictionary th {
+    font-weight: bold;
+    vertical-align: top;
+    white-space: nowrap;
+}

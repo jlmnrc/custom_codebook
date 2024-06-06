@@ -1,0 +1,72 @@
+{
+  "name": "Custom Codebook",
+  "namespace": "Monash\\Helix\\CustomCodebookModule",
+  "description": "Extract REDCap data dictionary/codebook and generate a Microsoft Word (docx) document for editing. It will add 'Export to Word' button at the Codebook page. It also allows user to specify which field to be excluded using action tags, and which instruments to be included (the default is all instruments).",
+  "framework-version": 15,
+
+  "authors": [
+    {
+      "name": "John Liman",
+      "email": "john.liman@monash.edu",
+      "institution": "Helix, Monash University, Australia"
+    }
+  ],
+
+  "project-settings": [
+    {
+      "name": "Specify the overarching generic unknown code, e.g. if the value of 99 is always an 'Unknown' option, you only need to specify it here, the generated word document will show (unknown allowed). Only specify one value, do not specify more than one values, e.g. 99,-1",
+      "key": "unknown_code",
+      "type": "text"
+    },
+    {
+      "name": "Specify which instruments/forms to be included (leave blank to apply to all instruments) as part of the data dictionary generation",
+      "key": "data_dictionary_instruments",
+      "type": "form-list",
+      "repeatable": true,
+      "select2": true
+    }
+  ],
+
+  "system-settings": [
+  ],
+
+  "action-tags": [
+    {
+      "tag": "@DD-HIDDEN",
+      "description": "When the @DD-HIDDEN action tag is specified in a field, that field will be excluded from the codebook. This means that the field will not appear in the codebook."
+    },
+    {
+      "tag": "@DD-ELEMENTNAME",
+      "description": "The @DD-ELEMENTNAME='field label' tag allows you to override the label of a field when generating the codebook. This is particularly useful in cases where the actual field label contains specific instructions intended only for data collection guide."
+    },
+    {
+      "tag": "@DD-FIELDDEF",
+      "description": "Tag @DD-FIELDDESC='field description' specifies the 'Description' of the field in the data dictionary."
+    },
+    {
+      "tag": "@DD-PURPOSE",
+      "description": "Tag @DD-PURPOSE='field purpose' specifies the 'Purpose' of collecting the data item in the data dictionary, e.g. Registration Requirements."
+    },
+    {
+      "tag": "@DD-DATACOLLECT",
+      "description": "Tag @DD-DATACOLLECT='how the data is collected' specifies the 'Data Collection' section in the data dictionary, e.g. Entered by Hospital staff/surgeon"
+    },
+    {
+      "tag": "@DD-STANDARDS",
+      "description": "Tag @DD-STANDARDS='METEOR identifier: 613340 / Australian Institute of Health and Welfare (AIHW)' specifies the 'Data Source, Standard/ Terminology' section in the data dictionary."
+    },
+    {
+      "tag": "@DD-CALCDESC",
+      "description": "The tag @DD-CALCDESC='Derived from Date Record Created and the Date of Birth' specifies the 'Data Collection' section in the data dictionary only when it is a CALCDATE or CALCTEXT or it is calc field."
+    },
+    {
+      "tag": "@DD-UNKNOWN",
+      "description": "When the tag @DD-UNKNOWN is specified, the generated codebook will indicate that the field allows an unknown value."
+    }
+  ],
+
+  "compatibility": {
+    "php-version-min": "7.3.0",
+    "php-version-max": ""
+  }
+}
