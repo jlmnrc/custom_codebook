@@ -22,14 +22,11 @@ class CustomCodebookModule extends AbstractExternalModule
     function redcap_every_page_top($project_id)
     {
         $settings = ExternalModules::getProjectSettingsAsArray($this->PREFIX, $project_id);
-        $enableWordFeature = $settings['word-enabled'];
 
         //word-enabled
         if (PAGE === "Design/data_dictionary_codebook.php") {
-            if ($enableWordFeature) {
-                echo '<script src="' . $this->getUrl('js/codebook_word.js') . '"></script>';
-                echo '<script type="text/javascript">function exportToWord() {window.location.href = "' . ExternalModules::getPageUrl($this->PREFIX, 'pages/codebook_word.php?pid=' . $project_id) . '";}</script>';
-            }
+            echo '<script src="' . $this->getUrl('js/codebook_word.js') . '"></script>';
+            echo '<script type="text/javascript">function exportToWord() {window.location.href = "' . ExternalModules::getPageUrl($this->PREFIX, 'pages/codebook_word.php?pid=' . $project_id) . '";}</script>';
             echo '<script src="' . $this->getUrl('js/codebook_html.js') . '"></script>';
             echo '<script type="text/javascript">function customDataDictionary() {window.location.href = "' . ExternalModules::getPageUrl($this->PREFIX, 'pages/codebook_html.php?pid=' . $project_id) . '";}</script>';
         }
