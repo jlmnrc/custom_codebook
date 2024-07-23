@@ -19,6 +19,12 @@ class Util
         return htmlspecialchars(strip_tags(Util::removePiping(Util::removeEmbeddedField($text))));
     }
 
+    // TODO: put the piping value in different color
+    public static function formatTextForDisplayWithPiping($text): string
+    {
+        return htmlspecialchars(strip_tags($text));
+    }
+
     // Function to convert coded string to friendly message
     public static function convertToFriendlyMessage($code, $nameMap, $valueMap) {
         $pattern = "/\[(.*?)\]\s*(<>|=|>|>=|<|<=)\s*['\"](.*?)['\"]/";

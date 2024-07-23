@@ -8,6 +8,7 @@ require_once "classes/DictionaryItem.php";
 require_once "classes/WordDictionaryItem.php";
 require_once "classes/HtmlDictionaryItem.php";
 
+use Exception;
 use ExternalModules\AbstractExternalModule;
 use ExternalModules\ExternalModules;
 use REDCap;
@@ -21,9 +22,7 @@ class CustomCodebookModule extends AbstractExternalModule
     // insert an icon at Codebook
     function redcap_every_page_top($project_id)
     {
-        $settings = ExternalModules::getProjectSettingsAsArray($this->PREFIX, $project_id);
-
-        //word-enabled
+        //word-enabled automatically
         if (PAGE === "Design/data_dictionary_codebook.php") {
             echo '<script src="' . $this->getUrl('js/codebook_word.js') . '"></script>';
             echo '<script type="text/javascript">function exportToWord() {window.location.href = "' . ExternalModules::getPageUrl($this->PREFIX, 'pages/codebook_word.php?pid=' . $project_id) . '";}</script>';
@@ -66,6 +65,11 @@ class CustomCodebookModule extends AbstractExternalModule
     // ******************************************************************************************
     public function renderDataDictionaryPage()
     {
+        $project_id = REDCap::escapeHtml($_GET["pid"]);
+
+        $settings = ExternalModules::getProjectSettingsAsArray($this->PREFIX, $project_id);
+        $instrumentsToBeDisplayed = $settings['data_dictionary_instruments']['value'];
+
         $dataDictionaryArray = REDCap::getDataDictionary('array');
         $currentFormName = "";
         $fieldNumberInSection = 0;
@@ -79,20 +83,23 @@ class CustomCodebookModule extends AbstractExternalModule
 
         foreach ($dataDictionaryArray as $fieldName => $fieldAttributes) {
             $dictionaryItem = new HtmlDictionaryItem($fieldAttributes);
-            if (!$dictionaryItem->isHidden()) {
-                if ($currentFormName !== $dictionaryItem->getFormName()) {
-                    $currentFormName = $dictionaryItem->getFormName();
-                    $instrumentLabel = REDCap::getInstrumentNames($currentFormName);
-                    $htmlContent .= "<tr valign='top' style='text-align:center;background-color:#ddd;width:28px;'><th class='codebook-form-header' colspan='4'>Instrument:<span style='font-size:120%;font-weight:bold;margin-left:7px;color:#000;'>$instrumentLabel</span> ($currentFormName)</th></tr>";
-                    $htmlContent .= "<tr valign='top' style='text-align:center;background-color:#ddd;width:28px;'><th style='text-align:center !important;'>#</th><th>Variable / Field Name</th><th>Field Label<div><i>
-<span style='color:#666;font-size:11px'>Field Note</span></i></div></th><th>Field Attributes (Field Type, Validation, Choices, Calculations, etc.)</th></tr>";
-                }
-                $fieldName = $dictionaryItem->getFieldName();
-                $fieldLabel = $dictionaryItem->getFieldLabel();
-                $fieldAttr = $dictionaryItem->getFieldAttr();
+            if ((is_null($instrumentsToBeDisplayed[0]) || in_array($dictionaryItem->getFormName(), $instrumentsToBeDisplayed))) {
 
-                $fieldNumberInSection++;
-                $htmlContent .= "<tr valign='top'><td style='text-align:center !important;'>$fieldNumberInSection</td><td class='vwrap'>$fieldName</td><td>$fieldLabel</td><td>$fieldAttr</td></tr>";
+                if (!$dictionaryItem->isHidden()) {
+                    if ($currentFormName !== $dictionaryItem->getFormName()) {
+                        $currentFormName = $dictionaryItem->getFormName();
+                        $instrumentLabel = REDCap::getInstrumentNames($currentFormName);
+                        $htmlContent .= "<tr valign='top' style='text-align:center;background-color:#ddd;width:28px;'><th class='codebook-form-header' colspan='4'>Instrument:<span style='font-size:120%;font-weight:bold;margin-left:7px;color:#000;'>$instrumentLabel</span> ($currentFormName)</th></tr>";
+                        $htmlContent .= "<tr valign='top' style='text-align:center;background-color:#ddd;width:28px;'><th style='text-align:center !important;'>#</th><th>Variable / Field Name</th><th>Field Label<div><i>
+<span style='color:#666;font-size:11px'>Field Note</span></i></div></th><th>Field Attributes (Field Type, Validation, Choices, Calculations, etc.)</th></tr>";
+                    }
+                    $fieldName = $dictionaryItem->getFieldName();
+                    $fieldLabel = $dictionaryItem->getFieldLabel();
+                    $fieldAttr = $dictionaryItem->getFieldAttr();
+
+                    $fieldNumberInSection++;
+                    $htmlContent .= "<tr valign='top'><td style='text-align:center !important;'>$fieldNumberInSection</td><td class='vwrap'>$fieldName</td><td>$fieldLabel</td><td>$fieldAttr</td></tr>";
+                }
             }
         }
         $htmlContent .= "</table>";
@@ -134,6 +141,10 @@ class CustomCodebookModule extends AbstractExternalModule
 
         $genericUnknownCode = $settings['unknown_code']['value'];
 
+        // check how many arms does the project have? this will be used to generate the arm name if there is more than one,
+        // or omit the arm name when there is only one
+        $armCount = (REDCap::isLongitudinal()) ? $this->getArmCount($project_id) : 0;
+
         // init the Php Word for our project
         $phpWord = $this->initPhpWord();
 
@@ -167,7 +178,7 @@ class CustomCodebookModule extends AbstractExternalModule
                         $instrumentLabel = Util::formatTextForDisplay(REDCap::getInstrumentNames($currentFormName));
 
                         $section->addTitle($instrumentLabel, 1);
-                        $events = $this->getEventNamesOrRepeatingIndicatorFromInstrument($project_id, $currentFormName);
+                        $events = $this->getEventNamesOrRepeatingIndicatorFromInstrument($project_id, $currentFormName, $armCount);
                     }
 
                     $fieldLabel = $dictionaryItem->getElementName();
@@ -250,7 +261,7 @@ class CustomCodebookModule extends AbstractExternalModule
                             $textRun->addText("*</w:t><w:br/><w:t>* multiple select", array('color' => 'C00000'));
                     }
 
-                    if (in_array($dictionaryItem->getFieldType(), $choiceFieldTypes)) {
+                    if (in_array($dictionaryItem->getFieldType(), DictionaryItem::CHOICE_FIELD_TYPES)) {
                         // need to create sub table
                         $choices = explode("|", Util::formatTextForDisplay($dictionaryItem->getSelectChoices()));
 
@@ -310,7 +321,8 @@ class CustomCodebookModule extends AbstractExternalModule
         }
 
         // Create filename
-        $tempFile = "DataDictionary_".$project_id."_".date("Y-m-d") . ".docx";
+        $filename = "DataDictionary_".$project_id."_".date("Y-m-d") . ".docx";
+        $tempFile = sys_get_temp_dir() . "/" . $filename;
         $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
         $objWriter->save($tempFile);
 
@@ -319,7 +331,7 @@ class CustomCodebookModule extends AbstractExternalModule
         // Set headers for file download
         header('Content-Description: File Transfer');
         header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="' . $tempFile . '"');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Expires: 0');
         header('Cache-Control: must-revalidate');
         header('Pragma: public');
@@ -372,7 +384,28 @@ class CustomCodebookModule extends AbstractExternalModule
         $footer->addPreserveText('Page {PAGE}', array('size' => 10), array('alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END));
     }
 
-    private function getEventNamesOrRepeatingIndicatorFromInstrument($project_id, $instrumentName)
+    private function getArmCount($project_id)
+    {
+        $result = $this->query(
+            '
+    select count(*) armCount 
+    from redcap_events_arms a 
+    where
+      a.project_id = ?
+  ',
+            [
+                $project_id
+            ]
+        );
+
+        $armCount = 0;
+        if ($row = $result->fetch_assoc()) {
+            $armCount = $row['armCount'];
+        }
+        return $armCount;
+    }
+
+    private function getEventNamesOrRepeatingIndicatorFromInstrument($project_id, $instrumentName, $armCount)
     {
         $result = $this->query(
             '
@@ -393,7 +426,8 @@ class CustomCodebookModule extends AbstractExternalModule
 
         $fieldArray = array();
         while ($row = $result->fetch_assoc()) {
-            $fieldArray[] = $row['event_name'] . ' at ' . $row['arm_name'] .  '|' . $row['is_repeat'];
+            $txt = ($armCount > 1) ? ' at ' . $row['arm_name']: '';
+            $fieldArray[] = $row['event_name'] . $txt .  '|' . $row['is_repeat'];
         }
         return $fieldArray;
     }

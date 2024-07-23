@@ -33,7 +33,7 @@ class WordDictionaryItem extends \Monash\Helix\CustomCodebookModule\DictionaryIt
      */
     public function getDescription(): string
     {
-        return Util::formatTextForDisplay($this->extractActionTagText(self::TAG_DEFINITION));
+        return $this->extractActionTagText(self::TAG_DEFINITION);
     }
 
     public function getDataObligation(): string
@@ -74,10 +74,8 @@ class WordDictionaryItem extends \Monash\Helix\CustomCodebookModule\DictionaryIt
             }
         }
 
-
         if (!empty($this->unknown_code))
         {
-
             if ($this->field_type == 'radio' || $this->field_type == 'dropdown' || $this->field_type == 'checkbox')
             {
                 // $this->select_choices_or_calculations has the unknown code?
@@ -147,7 +145,7 @@ class WordDictionaryItem extends \Monash\Helix\CustomCodebookModule\DictionaryIt
      */
     public function getStandards(): string
     {
-        return Util::formatTextForDisplay($this->extractActionTagText(self::TAG_STANDARDs));
+        return Util::formatTextForDisplay($this->extractActionTagText(self::TAG_STANDARDS));
     }
 
     public function getPermittedValues(): string
@@ -171,7 +169,7 @@ class WordDictionaryItem extends \Monash\Helix\CustomCodebookModule\DictionaryIt
         $data_collection[] = Util::formatTextForDisplay($this->field_note);
         if (str_contains($this->field_annotation, self::TAG_ELEMENT_NAME))
         {
-            $data_collection[] = $this->removeColonAtEnd(Util::formatTextForDisplay($this->field_label));
+            $data_collection[] = $this->removeColonAtEnd(Util::formatTextForDisplayWithPiping($this->field_label));
         }
         return implode("</w:t><w:br/><w:t>", array_filter($data_collection));
     }
@@ -213,19 +211,16 @@ class WordDictionaryItem extends \Monash\Helix\CustomCodebookModule\DictionaryIt
     /*
      * If the overwrite tag @DD-CALCDESC is provided for calculated field, it will be displayed here, otherwise it will be empty
     */
-    private function getCalculationValues(): string
+    protected function getCalculationValues(): string
     {
         // get the overwrite value if exist
-        $calc_desc = Util::formatTextForDisplay($this->extractActionTagText(self::TAG_CALCDESC));
+        $calc_desc = $this->extractActionTagText(self::TAG_CALCDESC);
         if (!empty($calc_desc)) {
             return $calc_desc;
         } else {
             if ($this->field_type == 'calc') {
-                return $this->select_choices_or_calculations;
-                /*            } else if (str_contains($this->field_annotation, '@CALCTEXT')) {
-                                return "set the value using tag @DD-CALCDESC=\"description\""; //
-                            } else if (str_contains($this->field_annotation, '@CALCDATE')) {
-                                return "set the value using tag @DD-CALCDESC=\"description\""; //*/
+                // we need to sanitize the calculated fields when the value contains < it will crash the word doc
+                return Util::formatTextForDisplayWithPiping($this->select_choices_or_calculations);
             } else {
                 return "";
             }

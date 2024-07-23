@@ -726,7 +726,7 @@ The 'Custom Codebook' page and the generated Word document will:
 |-----|------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
 | 11.  | **Collected When**                      | When the field contains a branching logic (see no. 6 above), this new section will show the branching logic code." |
 
-### 5.3. Longitudinal Setup and Repeating Instruments/Events
+### 5.3. Longitudinal Setup, Repeating Instruments/Events, Collection Guide
 ![03_longitudinal.jpg](images%2F03_longitudinal.jpg)
 
 | No  | Component                                | Component Description                                                                                                                                                                                                                                                    | How the text is populated?                                                                                         |
