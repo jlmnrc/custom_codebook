@@ -169,9 +169,10 @@ class ZipArchive
     {
         if (!$this->usePclzip) {
             if ($this->zip->close() === false) {
-                throw new Exception("Could not close zip file {$this->filename} due to {$this->zip->getStatusString()}: ");
+                throw new Exception("Could not close zip file {$this->filename}: ");
             }
         }
+
         return true;
     }
 
