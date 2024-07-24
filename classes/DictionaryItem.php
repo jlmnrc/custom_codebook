@@ -139,14 +139,15 @@ class DictionaryItem
             $begin = strpos($string, $actionTag . '=' . $quote) + strlen($actionTag)+2;
             // find the last of the quote
             $end = strpos($string, $quote, $begin);
-            return trim(substr($string, $begin, $end - $begin));
+            //return Util::formatTextForDisplayWithPiping(trim(substr($string, $begin, $end - $begin)));
+            return htmlspecialchars(trim(substr($string, $begin, $end - $begin)));
         }
         else
         {
             preg_match('/(' . $actionTag. ')\s*=\s*(\S+)/', $string, $matches1);
             if ($matches1) {
                 $value = $matches1[2];
-                return $value;
+                return htmlspecialchars($value);
             }
             else {
                 return '';
