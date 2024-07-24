@@ -132,15 +132,26 @@ class DictionaryItem
         // Find the quote character
         $pattern = '/' . $actionTag. '\s*=\s*(["\'])/';
         preg_match($pattern, $string, $matches);
-        $quote = $matches[1];
-
-        // Find beginning of the quote
-        $begin = strpos($string, $actionTag . '=' . $quote) + strlen($actionTag)+2;
-
-        // find the last of the quote
-        $end = strpos($string, $quote, $begin);
-
-        return trim(substr($string, $begin, $end - $begin));
+        if ($matches)
+        {
+            $quote = $matches[1];
+            // Find beginning of the quote
+            $begin = strpos($string, $actionTag . '=' . $quote) + strlen($actionTag)+2;
+            // find the last of the quote
+            $end = strpos($string, $quote, $begin);
+            return trim(substr($string, $begin, $end - $begin));
+        }
+        else
+        {
+            preg_match('/(' . $actionTag. ')\s*=\s*(\S+)/', $string, $matches1);
+            if ($matches1) {
+                $value = $matches1[2];
+                return $value;
+            }
+            else {
+                return '';
+            }
+        }
     }
 
     protected function isCalculatedField()
@@ -150,7 +161,7 @@ class DictionaryItem
 
     protected function extractDefaultTagValue(): string
     {
-        $default_value = Util::formatTextForDisplay($this->extractActionTagText("@DEFAULT"));
+        $default_value = Util::formatTextForDisplayWithPiping($this->extractActionTagText("@DEFAULT"));
         $appendText = "";
         if ($default_value !== '') {
             if ($default_value == "@NOW") {
