@@ -1,7 +1,7 @@
 {
   "name": "Custom Codebook",
   "namespace": "Monash\\Helix\\CustomCodebookModule",
-  "description": "Extract REDCap data dictionary/codebook and generate a Microsoft Word (docx) document for editing. It will add 'Export to Word' button at the Codebook page. It also allows user to specify which field to be excluded using action tags, and which instruments to be included (the default is all instruments).",
+  "description": "Extract REDCap data dictionary/codebook and generate a Microsoft Word (docx) document for editing. It will add 'Export to Word' and 'Export to CSV' button at the Codebook page. It also allows user to specify which field to be excluded using action tags, and which instruments to be included (the default is all instruments).",
   "framework-version": 15,
 
   "authors": [
@@ -62,6 +62,10 @@
     {
       "tag": "@DD-UNKNOWN",
       "description": "When the tag @DD-UNKNOWN is specified, the generated codebook will indicate that the field allows an unknown value."
+    },
+    {
+      "tag": "@DD",
+      "description": "Applicable to Descriptive field, when the tag @DD is specified, the generated codebook will INCLUDE the field (by default, the descriptive field is hidden)."
     }
   ],
 

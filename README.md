@@ -684,7 +684,7 @@ Data dictionaries have been a common tool in IT governance to build and document
 ## 2. Purpose
 The purpose of this external module is to create a document that can be used as a data governance tool to communicate with stakeholders such as funders, ethics committees, collaborators and potential re-users of the data.
 
-When the external module is enabled, the module will show a **'Custom Codebook'** (section 6) and **'Export to Word'** (section 5) buttons on the 'Codebook' page.  The module does **NOT** replace the current 'Codebook' page.
+When the external module is enabled, the module will show a **'Custom Codebook'** (section 6), **'Export to Word'** (section 5), and **'Export to CSV'** buttons on the 'Codebook' page.  The module does **NOT** replace the current 'Codebook' page.
 ![01_codebook.jpg](images%2F01_codebook.jpg)<p/>
 The generated Word Document is based on the Helix, Monash University Health Data Dictionary template, that being mapped to the REDCap functionalities.
 
@@ -693,11 +693,13 @@ The generated Word Document is based on the Helix, Monash University Health Data
 - Define an unknown value (see section 5.4 for its purpose)
 
 ## 4. Features
-The 'Custom Codebook' page and the generated Word document will:
-- Automatically exclude 'descriptive' field type and the [instrument]_complete fields.
+The custom codebook will:
+- Automatically exclude 'descriptive' field type unless there is a <code> @DD </code> action tag 
+- Automatically exclude the [instrument]_complete fields.
 - Hide fields that is tagged with <code> @DD-HIDDEN </code>.
 - Remove embedded/piped/HTML text from the label/choices.
 - Using various action tags to populate the details in the Word Document.
+- Exclude <code> @HIDECHOICES </code> options from the list 
 
 ## 5. Word Document (docx) Format
 ![00_word_doc.jpg](images%2F00_word_doc.jpg)

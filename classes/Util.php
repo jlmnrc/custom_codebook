@@ -16,13 +16,13 @@ class Util
 
     public static function formatTextForDisplay($text): string
     {
-        return htmlspecialchars(strip_tags(Util::removePiping(Util::removeEmbeddedField($text))));
+        return strip_tags(Util::removePiping(Util::removeEmbeddedField($text)));
     }
 
     // TODO: put the piping value in different color
     public static function formatTextForDisplayWithPiping($text): string
     {
-        return htmlspecialchars(strip_tags($text));
+        return strip_tags($text);
     }
 
     // Function to convert coded string to friendly message

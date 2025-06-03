@@ -7,8 +7,8 @@ require_once "classes/Util.php";
 require_once "classes/DictionaryItem.php";
 require_once "classes/WordDictionaryItem.php";
 require_once "classes/HtmlDictionaryItem.php";
+require_once "classes/CSVDictionaryItem.php";
 
-use Exception;
 use ExternalModules\AbstractExternalModule;
 use ExternalModules\ExternalModules;
 use REDCap;
@@ -26,6 +26,8 @@ class CustomCodebookModule extends AbstractExternalModule
         if (PAGE === "Design/data_dictionary_codebook.php") {
             echo '<script src="' . $this->getUrl('js/codebook_word.js') . '"></script>';
             echo '<script type="text/javascript">function exportToWord() {window.location.href = "' . ExternalModules::getPageUrl($this->PREFIX, 'pages/codebook_word.php?pid=' . $project_id) . '";}</script>';
+            echo '<script src="' . $this->getUrl('js/codebook_csv.js') . '"></script>';
+            echo '<script type="text/javascript">function exportToCSV() {window.location.href = "' . ExternalModules::getPageUrl($this->PREFIX, 'pages/codebook_csv.php?pid=' . $project_id) . '";}</script>';
             echo '<script src="' . $this->getUrl('js/codebook_html.js') . '"></script>';
             echo '<script type="text/javascript">function customDataDictionary() {window.location.href = "' . ExternalModules::getPageUrl($this->PREFIX, 'pages/codebook_html.php?pid=' . $project_id) . '";}</script>';
         }
@@ -51,7 +53,7 @@ class CustomCodebookModule extends AbstractExternalModule
                 foreach ($choices as $choice) {
                     // Split each choice into code and desc
                     list($code, $desc) = explode(',', $choice, 2);
-                    $nestedValues[trim($code)] = Util::formatTextForDisplay(trim($desc));
+                    $nestedValues[trim($code)] = htmlspecialchars(Util::formatTextForDisplay(trim($desc)));
                 }
                 $this->friendlyValues[$item->getFieldName()] = $nestedValues;
             }
@@ -98,7 +100,8 @@ class CustomCodebookModule extends AbstractExternalModule
                     $fieldAttr = $dictionaryItem->getFieldAttr();
 
                     $fieldNumberInSection++;
-                    $htmlContent .= "<tr valign='top'><td style='text-align:center !important;'>$fieldNumberInSection</td><td class='vwrap'>$fieldName</td><td>$fieldLabel</td><td>$fieldAttr</td></tr>";
+                    $htmlContent .= "<tr valign='top'><td style='text-align:center !important;'>$fieldNumberInSection</td><td class='vwrap'>$fieldName</td><td>$fieldLabel</td><td>$fieldAttr </td></tr>";
+
                 }
             }
         }
@@ -127,6 +130,83 @@ class CustomCodebookModule extends AbstractExternalModule
         return "<link rel='stylesheet' href='$styleURL' type='text/css'>";
     }
 
+
+    // ******************************************************************************************
+    // ******************************************************************************************
+    // CSV Format
+    // ******************************************************************************************
+    // ******************************************************************************************
+    public function downloadCSVFile(): void {
+        $project_id = REDCap::escapeHtml($_GET["pid"]);
+        $filename = "DataDictionary_".$project_id."_".date("Y-m-d") . ".csv";
+
+        // Output to file
+        header('Pragma: anytextexeptno-cache', true);
+        header("Content-type: application/csv");
+        header("Content-Disposition: attachment; filename=$filename");
+        // Output the file contents
+        print addBOMtoUTF8($this->generateCSVFile($project_id));
+    }
+
+    private function generateCSVFile($project_id): string|array|bool     {
+
+        $settings = ExternalModules::getProjectSettingsAsArray($this->PREFIX, $project_id);
+        $instrumentsToBeDisplayed = $settings['data_dictionary_instruments']['value'];
+
+        $dataDictionaryArray = REDCap::getDataDictionary('array');
+        $currentFormName = "";
+        $csvHeader = ['Data Element Name', 'Form/Instrument Name', 'Description', 'Field Name', 'Field Type', 'Purpose', 'Data Collection', 'Default Value', 'Collected When',
+            'Data Obligation', 'Permitted Values', 'Collection Guide', 'Data Source/Standards/Terminology'];
+        //$csvHeader = ['Data Element Name', 'Form', 'Description', 'Field Name', 'Purpose',
+        //  'Data Obligation', 'Permitted Values'];
+        $csvData = [];
+        $fieldNumber = 0;
+        foreach ($dataDictionaryArray as $fieldName => $fieldAttributes) {
+            $dictionaryItem = new CSVDictionaryItem($fieldAttributes, null, false);
+            if ((is_null($instrumentsToBeDisplayed[0]) || in_array($dictionaryItem->getFormName(), $instrumentsToBeDisplayed))) {
+                if (!$dictionaryItem->isHidden()) {
+                    if ($currentFormName !== $dictionaryItem->getFormName()) {
+                        $currentFormName = $dictionaryItem->getFormName();
+                        $instrumentLabel = REDCap::getInstrumentNames($currentFormName);
+                        $fieldNumber = 1;
+                    }
+
+                    $csvData[] = [
+                        $dictionaryItem->getElementName()
+                        , $instrumentLabel
+                        , $dictionaryItem->getDescription()
+                        , $dictionaryItem->getFieldName()
+                        , $dictionaryItem->getFieldType()
+                        , $dictionaryItem->getPurpose()
+                        , $dictionaryItem->getDataCollection()
+                        , $dictionaryItem->getDefaultValue()
+                        , $dictionaryItem->getBranchingLogic()
+                        , $dictionaryItem->getDataObligation()
+                        , $dictionaryItem->getPermittedValues()
+                        , $dictionaryItem->getCollectionGuide()
+                        , $dictionaryItem->getStandards()
+                    ];
+                    $fieldNumber++;
+                }
+            }
+        }
+
+        // Open connection to create file in memory and write to it
+        $fp = fopen('php://memory', "x+");
+        // Add headers
+        fputcsv($fp, $csvHeader, ',');
+        // Loop and write each line to CSV
+        foreach ($csvData as $line) {
+            fputcsv($fp, $line, ',');
+        }
+        // Open file for reading and output to user
+        fseek($fp, 0);
+        $content = stream_get_contents($fp);
+        // Replace CR+LF with just LF for better compatibility with Excel on Macs
+        $content = str_replace("\r\n", "\n", $content);
+        return $content;
+    }
+
     // ******************************************************************************************
     // ******************************************************************************************
     // WORD
@@ -134,10 +214,209 @@ class CustomCodebookModule extends AbstractExternalModule
     // ******************************************************************************************
     public function generateWordDoc(): void
     {
+        $project_id = REDCap::escapeHtml($_GET["pid"]);
+        $settings = ExternalModules::getProjectSettingsAsArray($this->PREFIX, $project_id);
+        $instrumentsToBeDisplayed = $settings['data_dictionary_instruments']['value'];
+        $genericUnknownCode = $settings['unknown_code']['value'];
+        $armCount = (REDCap::isLongitudinal()) ? $this->getArmCount($project_id) : 0;
+
+        $phpWord = $this->initPhpWord();
+        $this->createTitlePage($phpWord, htmlspecialchars(Util::formatTextForDisplay(REDCap::getProjectTitle())));
+        $section = $phpWord->addSection();
+        $this->addHeaderFooter($section);
+
+        $dataDictionaryArray = REDCap::getDataDictionary('array');
+        $recordIdField = REDCap::getRecordIdField();
+        $tableColumn1Width = 2000;
+        $tableColumn2Width = 7000;
+
+        $renderQueue = [];
+        $currentFormName = "";
+        $noOfLines = 0;
+        $isFirstForm = true;
+
+        // First Pass - Estimate line counts
+        foreach ($dataDictionaryArray as $fieldName => $fieldAttributes) {
+            $dictionaryItem = new WordDictionaryItem($fieldAttributes, $genericUnknownCode, $recordIdField === $fieldName);
+
+            if ((is_null($instrumentsToBeDisplayed[0]) || in_array($dictionaryItem->getFormName(), $instrumentsToBeDisplayed)) && !$dictionaryItem->isHidden()) {
+                $item = [
+                    'fieldName' => $fieldName,
+                    'dictionaryItem' => $dictionaryItem,
+                    'isNewForm' => false,
+                    'isFirstForm' => $isFirstForm,
+                    'lineCount' => 0
+                ];
+
+                $isFirstForm = false;
+
+                if ($currentFormName !== $dictionaryItem->getFormName()) {
+                    $currentFormName = $dictionaryItem->getFormName();
+                    $item['isNewForm'] = true;
+                    $instrumentLabel = htmlspecialchars(Util::formatTextForDisplay(REDCap::getInstrumentNames($currentFormName)));
+                    $item['instrumentLabel'] = $instrumentLabel;
+                    $noOfLines += ceil(strlen($instrumentLabel) / 60);
+                }
+
+                $noOfLines += ceil(strlen($dictionaryItem->getElementName()) / 67) + 1;
+                $noOfLines += max(1, ceil(strlen($dictionaryItem->getDescription()) / 82));
+                $noOfLines++;
+                $noOfLines += max(1, ceil(strlen($dictionaryItem->getPurpose()) / 83));
+                $dataCollectionLines = count(array_filter(explode("</w:t><w:br/><w:t>", $dictionaryItem->getDataCollection())));
+                $noOfLines += $dataCollectionLines;
+
+                if (!empty($dictionaryItem->getBranchingLogic()))
+                    $noOfLines += ceil(strlen(htmlspecialchars($dictionaryItem->getBranchingLogic())) / 73);
+
+                $noOfLines += 2; // data obligation + permitted values
+
+                if (in_array($dictionaryItem->getFieldType(), DictionaryItem::CHOICE_FIELD_TYPES)) {
+                    $choices = explode("|", htmlspecialchars(Util::formatTextForDisplay($dictionaryItem->getSelectChoices())));
+                    foreach ($choices as $choice) {
+                        [, $desc] = explode(", ", $choice, 2);
+                        $noOfLines += max(1, ceil(strlen($desc) / 57));
+                    }
+                } else {
+                    $noOfLines++;
+                }
+
+                if ($dictionaryItem->getCollectionGuide() !== '') $noOfLines++;
+                $noOfLines++;
+                $noOfLines += ceil(strlen(htmlspecialchars($dictionaryItem->getStandards())) / 82);
+                if ($dictionaryItem->getStandards() !== "") $noOfLines++;
+
+                $item['lineCount'] = $noOfLines;
+                $renderQueue[] = $item;
+                $noOfLines = 0;
+            }
+        }
+
+        // Second Pass - Generate Word Content with Page Breaks
+        $linesUsed = 0;
+        $currentFormName = "";
+        foreach ($renderQueue as $i => $item) {
+            $fieldLines = $item['lineCount'];
+            if ( (!$item['isFirstForm'] && $item['isNewForm']) || ($linesUsed + $fieldLines) > 31) {
+                $section->addPageBreak();
+                $linesUsed = 0;
+            }
+
+            $dictionaryItem = $item['dictionaryItem'];
+            $events = $this->getEventNamesOrRepeatingIndicatorFromInstrument($project_id, $dictionaryItem->getFormName(), $armCount);
+
+            if ($item['isNewForm']) {
+                $section->addTitle($item['instrumentLabel'], 1);
+                $linesUsed += ceil(strlen($item['instrumentLabel']) / 60);
+            }
+
+            $this->renderFieldElement($phpWord, $section, $dictionaryItem, $events, $tableColumn1Width, $tableColumn2Width);
+            $linesUsed += $fieldLines;
+        }
+
+        $filename = "DataDictionary_" . $project_id . "_" . date("Y-m-d") . ".docx";
+        $tempFile = sys_get_temp_dir() . "/" . $filename;
+        $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        $objWriter->save($tempFile);
+        \REDCap::logEvent("Downloaded word data dictionary");
+
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($tempFile));
+        readfile($tempFile);
+        unlink($tempFile);
+    }
+
+    private function renderFieldElement($phpWord, $section, $dictionaryItem, $events, $tableColumn1Width, $tableColumn2Width): void
+    {
+        $fieldLabel = htmlspecialchars($dictionaryItem->getElementName());
+        $section->addTitle($fieldLabel, 2);
+        $section->addLine(['weight' => 0, 'width' => 450, 'height' => 0, 'color' => '000000']);
+
+        $dataDictionaryStyleName = "DataDictionaryStyle";
+        $dataDictionaryStyle = ['borderSize' => 0, 'borderColor' => '#ffffff', 'cellMargin' => 20, 'width' => '100%', 'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::END, 'cellSpacing' => 10];
+        $dataDictionaryFirstRowStyle = ['borderBottomSize' => 18, 'borderBottomColor' => '#000000'];
+        $dataDictionaryHeaderFontStyle = ['bold' => true];
+        $cellColSpan = ['gridSpan' => 2];
+        $phpWord->addTableStyle($dataDictionaryStyleName, $dataDictionaryStyle, $dataDictionaryFirstRowStyle);
+        $table = $section->addTable($dataDictionaryStyleName);
+
+        $table->addRow();
+        $table->addCell($tableColumn1Width)->addText("Description:", $dataDictionaryHeaderFontStyle);
+        $table->addCell($tableColumn2Width)->addText(htmlspecialchars($dictionaryItem->getDescription()));
+        $table->addRow();
+        $table->addCell($tableColumn1Width)->addText("Field Name:", $dataDictionaryHeaderFontStyle);
+        $table->addCell($tableColumn2Width)->addText($dictionaryItem->getFieldName(), ["name" => "courier", "size" => 8, "color" => "#C00000"]);
+        $table->addRow();
+        $table->addCell($tableColumn1Width)->addText("Purpose:", $dataDictionaryHeaderFontStyle);
+        $table->addCell($tableColumn2Width)->addText(htmlspecialchars($dictionaryItem->getPurpose()));
+        $table->addRow();
+        $table->addCell($tableColumn1Width)->addText("Data Collection:", $dataDictionaryHeaderFontStyle);
+        $cell = $table->addCell($tableColumn2Width);
+        $cell->addText($dictionaryItem->getDataCollection());
+        $this->getCollectionTimepointOrRepeatingIndicator($cell, $events);
+
+        $collectionCondition = htmlspecialchars($dictionaryItem->getBranchingLogic());
+        if (!empty($collectionCondition)) {
+            $table->addRow();
+            $table->addCell($tableColumn1Width)->addText("Collected When:", $dataDictionaryHeaderFontStyle);
+            $table->addCell($tableColumn2Width)->addText($collectionCondition, ["name" => "courier", "size" => 8, "color" => "#C00000"]);
+        }
+
+        $table->addRow();
+        $table->addCell($tableColumn1Width)->addText("Data Obligation:", $dataDictionaryHeaderFontStyle);
+        $table->addCell($tableColumn2Width)->addText($dictionaryItem->getDataObligation());
+        $table->addRow();
+        $table->addCell($tableColumn1Width)->addText("Permitted Values:", $dataDictionaryHeaderFontStyle);
+
+        if (in_array($dictionaryItem->getFieldType(), DictionaryItem::CHOICE_FIELD_TYPES)) {
+            $choices = explode("|", htmlspecialchars(Util::formatTextForDisplay($dictionaryItem->getSelectChoices())));
+            $codeDescTableStyleName = 'Code Desc Table';
+            $codeDescTableStyle = ['borderSize' => 0, 'borderColor' => '#ffffff', 'cellMargin' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::START, 'cellSpacing' => 0];
+            $codeDescTableFirstRowStyle = ['borderBottomSize' => 18, 'borderBottomColor' => '#000000'];
+            $codeDescTableHeaderFontStyle = ['bold' => true];
+            $phpWord->addTableStyle($codeDescTableStyleName, $codeDescTableStyle, $codeDescTableFirstRowStyle);
+            $innerTable = $table->addCell($tableColumn2Width)->addTable($codeDescTableStyleName);
+            $innerTable->addRow();
+            $innerTable->addCell(1000)->addText("Code", $codeDescTableHeaderFontStyle);
+            $innerTable->addCell(5000)->addText("Description", $codeDescTableHeaderFontStyle);
+            foreach ($choices as $choice) {
+                list($code, $desc) = explode(", ", $choice, 2);
+                $innerTable->addRow();
+                $innerTable->addCell(1000)->addText(trim($code));
+                $innerTable->addCell(5000)->addText(trim($desc));
+            }
+        } else {
+            $table->addCell($tableColumn2Width)->addText(htmlspecialchars($dictionaryItem->getPermittedValues()));
+        }
+
+        if ($dictionaryItem->getCollectionGuide() !== '') {
+            $table->addRow();
+            $table->addCell($tableColumn1Width)->addText("Collection Guide:", $dataDictionaryHeaderFontStyle);
+            $table->addCell($tableColumn2Width)->addText($dictionaryItem->getCollectionGuide());
+        }
+
+        $table->addRow();
+        $table->addCell($tableColumn1Width + $tableColumn2Width, $cellColSpan)->addText("Data Source, Standard/ Terminology:", $dataDictionaryHeaderFontStyle);
+        $table->addRow();
+        $table->addCell($tableColumn1Width);
+        $table->addCell($tableColumn2Width)->addText(htmlspecialchars($dictionaryItem->getStandards()));
+        if ($dictionaryItem->getStandards() !== "") {
+            $table->addRow();
+            $table->addCell($tableColumn1Width + $tableColumn2Width, $cellColSpan)->addText("");
+        }
+    }
+
+    public function generateWordDoc2(): void
+    {
         // $this->initFriendlyVariableNames();
         $project_id = REDCap::escapeHtml($_GET["pid"]);
         $settings = ExternalModules::getProjectSettingsAsArray($this->PREFIX, $project_id);
         $instrumentsToBeDisplayed = $settings['data_dictionary_instruments']['value'];
+        $pageBreakOption = $settings['word_page_break']['value'];
 
         $genericUnknownCode = $settings['unknown_code']['value'];
 
@@ -149,14 +428,13 @@ class CustomCodebookModule extends AbstractExternalModule
         $phpWord = $this->initPhpWord();
 
         // Add the title page to the document
-        $this->createTitlePage($phpWord, Util::formatTextForDisplay(REDCap::getProjectTitle()));
+        $this->createTitlePage($phpWord, htmlspecialchars(Util::formatTextForDisplay(REDCap::getProjectTitle())));
 
         // Footer/Header
         $section = $phpWord->addSection();
         $this->addHeaderFooter($section);
 
         $currentFormName = "";
-        $choiceFieldTypes = ['radio', 'dropdown', 'checkbox', 'yesno', 'truefalse'];
         $dataDictionaryArray = REDCap::getDataDictionary('array');
         $recordIdField = REDCap::getRecordIdField();
         // TODO how do you know if this is auto numbering of not auto numbering?
@@ -164,8 +442,14 @@ class CustomCodebookModule extends AbstractExternalModule
         $tableColumn1Width = 2000;
         $tableColumn2Width = 7000;
 
+        $lastItem = array_key_last($dataDictionaryArray);
+
+        $fieldElementCnt = 0; // for page break
+        $noOfLines = 0;
+
         foreach ($dataDictionaryArray as $fieldName => $fieldAttributes) {
             $dictionaryItem = new WordDictionaryItem($fieldAttributes, $genericUnknownCode, $recordIdField === $fieldName);
+            $isLast = ($fieldName === $lastItem);
 
             // check if there is a form specified in the configuration page
             if ((is_null($instrumentsToBeDisplayed[0]) || in_array($dictionaryItem->getFormName(), $instrumentsToBeDisplayed))) {
@@ -175,17 +459,22 @@ class CustomCodebookModule extends AbstractExternalModule
                         if ($currentFormName !== "") $section->addPageBreak();
 
                         $currentFormName = $dictionaryItem->getFormName();
-                        $instrumentLabel = Util::formatTextForDisplay(REDCap::getInstrumentNames($currentFormName));
+                        $instrumentLabel = htmlspecialchars(Util::formatTextForDisplay(REDCap::getInstrumentNames($currentFormName)));
 
                         $section->addTitle($instrumentLabel, 1);
                         $events = $this->getEventNamesOrRepeatingIndicatorFromInstrument($project_id, $currentFormName, $armCount);
+
+                        $noOfLines += ceil(strlen($instrumentLabel) / 60);
                     }
 
-                    $fieldLabel = $dictionaryItem->getElementName();
+                    $fieldLabel = htmlspecialchars($dictionaryItem->getElementName());
                     $section->addTitle($fieldLabel, 2);
+                    $noOfLines += ceil(strlen($fieldLabel) / 67);
+
 
                     $lineStyle = array('weight' => 0, 'width' => 450, 'height' => 0, 'color' => '000000');
                     $section->addLine($lineStyle);
+                    $noOfLines++;
 
                     // add the below table here
                     /*
@@ -212,7 +501,10 @@ class CustomCodebookModule extends AbstractExternalModule
                     $table = $section->addTable($dataDictionaryStyleName);
                     $table->addRow();
                     $table->addCell($tableColumn1Width)->addText("Description:", $dataDictionaryHeaderFontStyle);
-                    $table->addCell($tableColumn2Width)->addText($dictionaryItem->getDescription());
+                    $fieldDesc = htmlspecialchars($dictionaryItem->getDescription());
+                    $table->addCell($tableColumn2Width)->addText($fieldDesc);
+                    $noOfLines += max(1, ceil(strlen($fieldDesc) / 82));
+
                     $table->addRow();
                     $table->addCell($tableColumn1Width)->addText("Field Name:", $dataDictionaryHeaderFontStyle);
                     $table->addCell($tableColumn2Width)->addText($dictionaryItem->getFieldName(),
@@ -221,19 +513,23 @@ class CustomCodebookModule extends AbstractExternalModule
                             "size" => 8,
                             "color" => "#C00000"
                         ]);
+                    $noOfLines++;
                     $table->addRow();
                     $table->addCell($tableColumn1Width)->addText("Purpose:", $dataDictionaryHeaderFontStyle);
-                    $table->addCell($tableColumn2Width)->addText($dictionaryItem->getPurpose());
+                    $fieldPurpose = htmlspecialchars($dictionaryItem->getPurpose());
+                    $table->addCell($tableColumn2Width)->addText($fieldPurpose);
+                    $noOfLines += max(1, ceil(strlen($fieldPurpose) / 83));
 
                     $table->addRow();
                     $table->addCell($tableColumn1Width)->addText("Data Collection:", $dataDictionaryHeaderFontStyle);
                     $cell = $table->addCell($tableColumn2Width);
                     $cell->addText($dictionaryItem->getDataCollection());
+                    $dataCollectedAsArrayAgain = explode("</w:t><w:br/><w:t>", $dictionaryItem->getDataCollection());
                     $this->getCollectionTimepointOrRepeatingIndicator($cell, $events);
+                    $noOfLines += count(array_filter($dataCollectedAsArrayAgain));
 
-                    // Need further testing
                     // $collectionCondition = Util::convertToFriendlyMessage($dictionaryItem->getBranchingLogic(), $this->friendlyNames, $this->friendlyValues);
-                    $collectionCondition = $dictionaryItem->getBranchingLogic();
+                    $collectionCondition = htmlspecialchars($dictionaryItem->getBranchingLogic());
                     if (!empty($collectionCondition)) {
                         $table->addRow();
                         $table->addCell($tableColumn1Width)->addText("Collected When:", $dataDictionaryHeaderFontStyle);
@@ -243,27 +539,30 @@ class CustomCodebookModule extends AbstractExternalModule
                                 "size" => 8,
                                 "color" => "#C00000"
                             ]);
+                        $noOfLines += ceil(strlen($collectionCondition) / 73);
                     }
 
                     $table->addRow();
                     $table->addCell($tableColumn1Width)->addText("Data Obligation:", $dataDictionaryHeaderFontStyle);
                     $table->addCell($tableColumn2Width)->addText($dictionaryItem->getDataObligation());
+                    $noOfLines++;
 
                     $table->addRow();
                     $cell = $table->addCell($tableColumn1Width);
                     $textRun = $cell->addTextRun();
                     // Adding "Permitted Values:" text
                     $textRun->addText("Permitted Values:", $dataDictionaryHeaderFontStyle);
+                    $noOfLines++;
 
                     // Check if it is checkbox to add the red asterisk
                     if ($dictionaryItem->getFieldType() == 'checkbox') {
-                        if (sizeof(explode("|", Util::formatTextForDisplay($dictionaryItem->getSelectChoices()))) > 1)
+                        if (sizeof(explode("|", htmlspecialchars(Util::formatTextForDisplay($dictionaryItem->getSelectChoices())))) > 1)
                             $textRun->addText("*</w:t><w:br/><w:t>* multiple select", array('color' => 'C00000'));
                     }
 
                     if (in_array($dictionaryItem->getFieldType(), DictionaryItem::CHOICE_FIELD_TYPES)) {
                         // need to create sub table
-                        $choices = explode("|", Util::formatTextForDisplay($dictionaryItem->getSelectChoices()));
+                        $choices = explode("|", htmlspecialchars(Util::formatTextForDisplay($dictionaryItem->getSelectChoices())));
 
                         $codeDescTableStyleName = 'Code Desc Table';
                         $codeDescTableStyle = ['borderSize' => 0, 'borderColor' => '#ffffff', 'cellMargin' => 0, 'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::START, 'cellSpacing' => 0];
@@ -276,6 +575,7 @@ class CustomCodebookModule extends AbstractExternalModule
                         $innerTable->addRow();
                         $innerTable->addCell(1000)->addText("Code", $codeDescTableHeaderFontStyle);
                         $innerTable->addCell(5000)->addText("Description", $codeDescTableHeaderFontStyle);
+                        // $noOfLines++; // do not add extra line as the 'Permitted Values' parent header is already counted
 
                         foreach ($choices as $choice) {
                             // Split each choice into code and desc
@@ -284,17 +584,22 @@ class CustomCodebookModule extends AbstractExternalModule
                             $innerTable->addRow();;
                             $innerTable->addCell(1000)->addText(trim($code));
                             $innerTable->addCell(5000)->addText(trim($desc));
+                            $noOfLines += max(1, ceil(strlen($desc) / 57));
                         }
                     } else {
-                        if ($dictionaryItem->getFieldType() === 'calc') {
-                            $table->addCell($tableColumn2Width)->addText($dictionaryItem->getPermittedValues(),
-                                [
-                                    "name" => "courier",
-                                    "size" => 8,
-                                    "color" => "#C00000"
-                                ]);
+                        $fieldType = $dictionaryItem->getFieldType();
+                        $permittedValues = htmlspecialchars($dictionaryItem->getPermittedValues());
+
+                        $cell = $table->addCell($tableColumn2Width);
+
+                        if ($fieldType === 'calc') {
+                            $cell->addText($permittedValues, [
+                                "name" => "courier",
+                                "size" => 8,
+                                "color" => "#C00000"
+                            ]);
                         } else {
-                            $table->addCell($tableColumn2Width)->addText($dictionaryItem->getPermittedValues());
+                            $cell->addText($permittedValues);
                         }
                     }
 
@@ -305,17 +610,38 @@ class CustomCodebookModule extends AbstractExternalModule
                         $table->addRow();
                         $table->addCell($tableColumn1Width)->addText("Collection Guide:", $dataDictionaryHeaderFontStyle);
                         $table->addCell($tableColumn2Width)->addText($collectionGuide);
+                        $noOfLines++;
                     }
 
                     $table->addRow();
                     $table->addCell($tableColumn1Width + $tableColumn2Width, $cellColSpan)->addText("Data Source, Standard/ Terminology:", $dataDictionaryHeaderFontStyle);
+                    $noOfLines++;
                     $table->addRow();
                     $table->addCell($tableColumn1Width)->addText("");
-                    $table->addCell($tableColumn2Width)->addText($dictionaryItem->getStandards());
+                    $fieldStandards = htmlspecialchars($dictionaryItem->getStandards());
+                    $table->addCell($tableColumn2Width)->addText($fieldStandards);
+                    $noOfLines += ceil(strlen($fieldStandards) / 83);
+
+                    // add extra space after standards
                     if ($dictionaryItem->getStandards() !== "") {
                         $table->addRow();
                         $table->addCell($tableColumn1Width + $tableColumn2Width, $cellColSpan)->addText("");
+                        $noOfLines++;
                     }
+                    $fieldElementCnt++;
+                    $section->addText('Number of lines not counting this one '.$noOfLines);
+                    // Do not add page break at the last page
+                    if (!$isLast) {
+                        if ($pageBreakOption === 'one' && $fieldElementCnt == 1) {
+                            $section->addPageBreak();
+                            $fieldElementCnt = 0;
+                        } elseif ($pageBreakOption === 'two' && $fieldElementCnt == 2) {
+                            $section->addPageBreak();
+                            $fieldElementCnt = 0;
+                        }
+                        // If $pageBreakOption is not 'one' or 'two', no page break is added
+                    }
+                    $noOfLines = 0; // reset
                 }
             }
         }
@@ -371,7 +697,7 @@ class CustomCodebookModule extends AbstractExternalModule
 
         // Add a title page
         $section->addTextBreak(7); // Add some space
-        $section->addText(Util::formatTextForDisplay($title), array('bold' => true, 'size' => 40), array('alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER));
+        $section->addText(htmlspecialchars(Util::formatTextForDisplay($title)), array('bold' => true, 'size' => 40), array('alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER));
         $section->addTextBreak(2); // Add some space
         $section->addText('Data Dictionary', array('italic' => true, 'size' => 32), array('alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER));
         $section->addTextBreak(1); // Add some space

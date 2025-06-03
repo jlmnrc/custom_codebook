@@ -52,7 +52,7 @@ class HtmlDictionaryItem extends \Monash\Helix\CustomCodebookModule\DictionaryIt
         return implode(', ', $validation_texts);
     }
 
-    private function getCalculationValues(): string
+    protected function getCalculationValues(): string
     {
         // get the overwrite value if exist
         $calc_desc = Util::formatTextForDisplay($this->extractActionTagText("@DD-CALCDESC"));
@@ -83,7 +83,7 @@ class HtmlDictionaryItem extends \Monash\Helix\CustomCodebookModule\DictionaryIt
 
             // format the choices if exist
             if ($this->select_choices_or_calculations !== "") {
-                $choices = explode("|", Util::formatTextForDisplay($this->select_choices_or_calculations));
+                $choices = explode("|", Util::formatTextForDisplay($this->getSelectChoices()));
 
                 // Start the table
                 $output = '<table border="1" class="ReportTableWithBorder">';
