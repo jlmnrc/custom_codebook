@@ -80,7 +80,7 @@ class DictionaryItem
     }
 
     /*
-     * There will a scenario when we want to overwrite the label, e.g. when the label contains other characters that are only applicable for data entry but not data dictionary.
+     * There will be a scenario when we want to overwrite the label, e.g. when the label contains other characters that are only applicable for data entry but not data dictionary.
      * Therefore, if you use @DD_ELEMENTNAME="Your label here", this will overwrite the default field_label
      */
     public function getElementName(): string
