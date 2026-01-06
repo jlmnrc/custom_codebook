@@ -145,7 +145,7 @@ class CustomCodebookModule extends AbstractExternalModule
         header("Content-type: application/csv");
         header("Content-Disposition: attachment; filename=$filename");
         // Output the file contents
-        print addBOMtoUTF8($this->generateCSVFile($project_id));
+        print $this->addBOMtoUTF8($this->generateCSVFile($project_id));
     }
 
     private function generateCSVFile($project_id): string|array|bool     {
@@ -204,6 +204,15 @@ class CustomCodebookModule extends AbstractExternalModule
         $content = stream_get_contents($fp);
         // Replace CR+LF with just LF for better compatibility with Excel on Macs
         $content = str_replace("\r\n", "\n", $content);
+        return $content;
+    }
+
+    private function addBOMtoUTF8(string $content): string
+    {
+        $bom = "\xEF\xBB\xBF";
+        if (strncmp($content, $bom, 3) !== 0) {
+            $content = $bom . $content;
+        }
         return $content;
     }
 
