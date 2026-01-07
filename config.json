@@ -33,39 +33,39 @@
   "action-tags": [
     {
       "tag": "@DD-HIDDEN",
-      "description": "When the @DD-HIDDEN action tag is specified in a field, that field will be excluded from the codebook. This means that the field will not appear in the codebook."
+      "description": "Override: excludes the field from the generated codebook/exports (the field will not appear). Default (no tag): the field is included in the codebook/exports (subject to general exclusions such as [instrument]_complete)."
     },
     {
       "tag": "@DD-ELEMENTNAME",
-      "description": "The @DD-ELEMENTNAME='field label' tag allows you to override the label of a field when generating the codebook. This is particularly useful in cases where the actual field label contains specific instructions intended only for data collection guide."
+      "description": "Override: sets the exported 'Data Element' name to the provided value (useful when the REDCap Field Label contains long instructions meant for the collection guide). Default (no tag): 'Data Element' uses the REDCap Field Label (cleaned of piping/HTML where applicable)."
     },
     {
       "tag": "@DD-FIELDDEF",
-      "description": "Tag @DD-FIELDDESC='field description' specifies the 'Description' of the field in the data dictionary."
+      "description": "Override: populates the exported 'Description' (field definition) with the provided text. Default (no tag): 'Description' is blank / not populated."
     },
     {
       "tag": "@DD-PURPOSE",
-      "description": "Tag @DD-PURPOSE='field purpose' specifies the 'Purpose' of collecting the data item in the data dictionary, e.g. Registration Requirements."
+      "description": "Override: populates the exported 'Purpose' with the provided text (e.g., 'Registration Requirements'). Default (no tag): 'Purpose' is blank / not populated."
     },
     {
       "tag": "@DD-DATACOLLECT",
-      "description": "Tag @DD-DATACOLLECT='how the data is collected' specifies the 'Data Collection' section in the data dictionary, e.g. Entered by Hospital staff/surgeon"
+      "description": "Additive override: appends extra guidance text to the exported 'Data Collection' section (e.g., 'Entered by Hospital staff/surgeon'). Default (no tag): 'Data Collection' is derived from REDCap logic only—'Always collected' when no branching logic, otherwise 'Conditional collection'."
     },
     {
       "tag": "@DD-STANDARDS",
-      "description": "Tag @DD-STANDARDS='METEOR identifier: 613340 / Australian Institute of Health and Welfare (AIHW)' specifies the 'Data Source, Standard/ Terminology' section in the data dictionary."
+      "description": "Override: populates the exported 'Data Source, Standard / Terminology' section with the provided reference text (e.g., 'METEOR identifier: 613340 / AIHW'). Default (no tag): this section is blank / not populated."
     },
     {
       "tag": "@DD-CALCDESC",
-      "description": "The tag @DD-CALCDESC='Derived from Date Record Created and the Date of Birth' specifies the 'Data Collection' section in the data dictionary only when it is a CALCDATE or CALCTEXT or it is calc field."
+      "description": "Additive override: adds a calculation description for calculated fields (e.g., CALCDATE/CALCTEXT/calc fields). Default (no tag): no calculation description is shown; calculated fields only include their standard permitted-values/calculation handling."
     },
     {
       "tag": "@DD-UNKNOWN",
-      "description": "When the tag @DD-UNKNOWN is specified, the generated codebook will indicate that the field allows an unknown value."
+      "description": "Override: forces the export to indicate '(unknown allowed)' for this field. Default (no tag): unknown/missing allowance is determined automatically (e.g., by project missing code configuration or module-level unknown matching rules)."
     },
     {
       "tag": "@DD",
-      "description": "Applicable to Descriptive field, when the tag @DD is specified, the generated codebook will INCLUDE the field (by default, the descriptive field is hidden)."
+      "description": "Override: includes a 'descriptive' field in the generated codebook/exports. Default (no tag): 'descriptive' fields are excluded/hidden from the generated codebook/exports."
     }
   ],
 
