@@ -45,6 +45,7 @@ jobs:
             - '8.1'
             - '8.2'
             - '8.3'
+            - '8.4'
     steps:
         -   name: Setup PHP
             uses: shivammathur/setup-php@v2
@@ -75,6 +76,7 @@ jobs:
             - '8.1'
             - '8.2'
             - '8.3'
+            - '8.4'
     steps:
       -   name: Setup PHP
           uses: shivammathur/setup-php@v2
@@ -104,3 +106,13 @@ jobs:
             wget https://github.com/php-coveralls/php-coveralls/releases/download/v2.4.3/php-coveralls.phar
             chmod +x php-coveralls.phar
             php php-coveralls.phar --coverage_clover=build/clover.xml --json_path=build/coveralls-upload.json -vvv
+
+  roave-backwards-compatibility-check:
+    name: Roave Backwards Compatibility Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: "Check for BC breaks"
+        run: docker run -u $(id -u) -v $(pwd):/app nyholm/roave-bc-check-ga

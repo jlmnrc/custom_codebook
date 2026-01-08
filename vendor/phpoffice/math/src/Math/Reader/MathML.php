@@ -10,6 +10,7 @@ use PhpOffice\Math\Element;
 use PhpOffice\Math\Exception\InvalidInputException;
 use PhpOffice\Math\Exception\NotImplementedException;
 use PhpOffice\Math\Math;
+use PhpOffice\Math\Reader\Security\XmlScanner;
 
 class MathML implements ReaderInterface
 {
@@ -19,11 +20,20 @@ class MathML implements ReaderInterface
     /** @var DOMDocument */
     private $dom;
 
-    /** @var DOMXpath */
+    /** @var DOMXPath */
     private $xpath;
+
+    /** @var XmlScanner */
+    private $xmlScanner;
+
+    public function __construct()
+    {
+        $this->xmlScanner = XmlScanner::getInstance();
+    }
 
     public function read(string $content): ?Math
     {
+        $content = $this->xmlScanner->scan($content);
         $content = str_replace(
             [
                 '&InvisibleTimes;',
@@ -35,7 +45,7 @@ class MathML implements ReaderInterface
         );
 
         $this->dom = new DOMDocument();
-        $this->dom->loadXML($content, LIBXML_DTDLOAD);
+        $this->dom->loadXML($content);
 
         $this->math = new Math();
         $this->parseNode(null, $this->math);
@@ -48,7 +58,7 @@ class MathML implements ReaderInterface
      */
     protected function parseNode(?DOMNode $nodeRowElement, $parent): void
     {
-        $this->xpath = new DOMXpath($this->dom);
+        $this->xpath = new DOMXPath($this->dom);
         foreach ($this->xpath->query('*', $nodeRowElement) ?: [] as $nodeElement) {
             if ($parent instanceof Element\Semantics
                 && $nodeElement instanceof DOMElement
@@ -61,12 +71,7 @@ class MathML implements ReaderInterface
                 continue;
             }
 
-            $element = $this->getElement($nodeElement);
-            $parent->add($element);
-
-            if ($element instanceof Element\AbstractGroupElement) {
-                $this->parseNode($nodeElement, $element);
-            }
+            $parent->add($this->getElement($nodeElement));
         }
     }
 
@@ -108,7 +113,11 @@ class MathML implements ReaderInterface
 
                 return new Element\Operator($nodeValue);
             case 'mrow':
-                return new Element\Row();
+                $mrow = new Element\Row();
+
+                $this->parseNode($nodeElement, $mrow);
+
+                return $mrow;
             case 'msup':
                 $nodeList = $this->xpath->query('*', $nodeElement);
                 if ($nodeList && $nodeList->length == 2) {
@@ -124,7 +133,11 @@ class MathML implements ReaderInterface
                     $nodeElement->nodeName
                 ));
             case 'semantics':
-                return new Element\Semantics();
+                $semantics = new Element\Semantics();
+
+                $this->parseNode($nodeElement, $semantics);
+
+                return $semantics;
             default:
                 throw new NotImplementedException(sprintf(
                     '%s : The tag `%s` is not implemented',

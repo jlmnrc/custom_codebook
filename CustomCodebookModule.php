@@ -121,8 +121,7 @@ class CustomCodebookModule extends AbstractExternalModule
         $current_timestamp = time();
 
         // Format the current timestamp using strftime
-        return strftime("%B %d, %Y", $current_timestamp);
-
+        return date('F d, Y', $current_timestamp);
     }
     private function printCSS(): string
     {
@@ -194,10 +193,10 @@ class CustomCodebookModule extends AbstractExternalModule
         // Open connection to create file in memory and write to it
         $fp = fopen('php://memory', "x+");
         // Add headers
-        fputcsv($fp, $csvHeader, ',');
+        fputcsv($fp, $csvHeader, ',', '"', '');
         // Loop and write each line to CSV
         foreach ($csvData as $line) {
-            fputcsv($fp, $line, ',');
+            fputcsv($fp, $line, ',', '"', '');
         }
         // Open file for reading and output to user
         fseek($fp, 0);
