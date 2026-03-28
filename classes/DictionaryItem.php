@@ -339,6 +339,9 @@ class DictionaryItem
      * 1. The user provided the 'Generic Unknown Overarching Code' for the whole project at the External Module settings.  This code will be compared with the dropdown/checkboxes values.
      * 2. The user provided the @DD-UNKNOWN at each field, this will overwrite the "Generic Unknown Overarching Code" specified above
      * 3. It uses the 'Missing Values' with Unknown code as specified above
+     *
+     * NOTE: Unknown text only display when it is a mandatory field
+     *
      */
     protected function getUnknownText(): string
     {
@@ -365,7 +368,7 @@ class DictionaryItem
                 foreach ($choices as $choice) {
                     // Split each choice into code and desc
                     list($code, $desc) = explode(',', $choice, 2);
-                    if ($code == $this->unknown_code) {
+                    if (trim($code) === trim($this->unknown_code)) {
                         return $this::UNKNOWN_ALLOWED_TEXT;
                     }
                 }
